@@ -19,7 +19,7 @@ class Game {
     if(this.wrong>=LIMIT){this.end('lost');return}
     if(this.pending){this.pending.wait-=dt;if(this.pending.wait<=0)this.spawn()}else{this.spawnIn-=dt;if(this.spawnIn<=0)this.plan()}
   }
-  pickup(id){if(!['playing','practice'].includes(this.mode)||this.dragId!==null)return false;if(!this.people.some(p=>p.id===id&&p.state!=='window'))return false;this.dragId=id;return true}
+  pickup(id,throughHole=false){if(!['playing','practice'].includes(this.mode)||this.dragId!==null)return false;if(!this.people.some(p=>p.id===id&&(p.state!=='window'||throughHole)))return false;this.dragId=id;return true}
   cancel(){this.dragId=null}
   release(room){const p=this.people.find(p=>p.id===this.dragId);this.dragId=null;if(!p||!['practice','playing'].includes(this.mode))return {ok:false,reason:'inactive'};if(room!==p.home){this.combo=0;return {ok:false,reason:room===null?'outside':'wrong',home:p.home}}this.people=this.people.filter(q=>q!==p);if(this.mode==='practice'){return {ok:true,practice:true,home:p.home,points:0}}
     this.saved++;this.combo++;this.comboUntil=this.elapsed+4;const multiplier=this.combo>=6?3:this.combo>=3?2:1,points=10*multiplier;this.score+=points;return {ok:true,points,home:p.home,multiplier};
@@ -30,10 +30,11 @@ class Game {
 }
 function dropRoom(point,centre,rooms,home){for(const p of [point,centre]){const inside=rooms.findIndex(r=>p.x>=r.left&&p.x<=r.right&&p.y>=r.top&&p.y<=r.bottom);if(inside>=0)return inside}const r=rooms[home],pad=16;return [point,centre].some(p=>p.x>=r.left-pad&&p.x<=r.right+pad&&p.y>=r.top-pad&&p.y<=r.bottom+pad)?home:null}
 function layout(width,height){const wide=width/height>1.5&&width>=500,compact=!wide&&height<350;let size,rooms,windowBox,lanes;
-if(wide){size=Math.min(50,Math.max(36,(height-50)/5));const gap=size+5,windowWidth=size+12,roomY=0,roomH=height-3*gap-8,roomW=(width-windowWidth)/4;rooms=Array.from({length:4},(_,i)=>({left:windowWidth+i*roomW,top:roomY,width:roomW,height:roomH}));windowBox={left:0,top:0,width:windowWidth-4,height};lanes=[0,1,2].map(i=>roomH+8+gap*(i+.5));}
+if(wide){size=Math.min(50,Math.max(28,(height-64)/6));const gap=size+5,windowH=size+12,roomY=windowH,roomH=height-windowH-3*gap-8,roomW=width/4;rooms=Array.from({length:4},(_,i)=>({left:i*roomW,top:roomY,width:roomW,height:roomH}));windowBox={left:0,top:0,width,height:windowH-4};lanes=[0,1,2].map(i=>roomY+roomH+8+gap*(i+.5));}
 else{size=compact?Math.min(40,(width/4-8)/2,(height-75)/6):Math.min(50,Math.max(34,(height-84)/8));const gap=size+5,windowH=size+22,roomH=height-windowH-3*gap-12;rooms=Array.from({length:4},(_,i)=>({left:i*width/4,top:windowH,width:width/4,height:roomH}));windowBox={left:0,top:0,width,height:windowH-4};lanes=[0,1,2].map(i=>windowH+roomH+12+gap*(i+.5));}
 return {width,height,size,wide,columns:wide||compact?2:1,rooms,windowBox,lanes};}
-function position(p,l){const room=l.rooms[p.state==='wrong'?p.target:p.home],centre=i=>l.rooms[i].left+l.rooms[i].width/2;if(p.state==='window'){if(l.wide){const a=(p.home+.5)*l.height/4,b=(p.target+.5)*l.height/4;return {x:l.windowBox.width/2,y:a+(b-a)*p.progress}}return {x:centre(p.home)+(centre(p.target)-centre(p.home))*p.progress,y:l.size/2+4}}
+function position(p,l){const room=l.rooms[p.state==='wrong'?p.target:p.home],centre=i=>l.rooms[i].left+l.rooms[i].width/2;if(p.state==='window'){return {x:centre(p.home)+(centre(p.target)-centre(p.home))*p.progress,y:l.size/2+4}}
 if(p.state==='wrong'){const cols=l.columns,row=Math.floor(p.slot/cols),col=p.slot%cols;return {x:room.left+room.width/2+(cols===2?(col-.5)*(l.size+4):0),y:room.top+22+l.size/2+row*(l.size+4)}}return {x:centre(p.home)+(centre(p.target)-centre(p.home))*p.progress,y:l.lanes[p.lane]};}
-const api={Game,dropRoom,position,layout,LIMIT};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.SleepGame=api;
+function windowCatchable(p,l){return p.state==='window'&&[.22,.5,.78].some(x=>Math.abs(position(p,l).x-l.width*x)<=l.size*.7)}
+const api={windowCatchable,Game,dropRoom,position,layout,LIMIT};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.SleepGame=api;
 })(globalThis);
