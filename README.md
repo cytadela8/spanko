@@ -21,7 +21,7 @@ Otwórz http://localhost:8000/. Przeglądarka uruchamia bezpośrednio pliki źr�
 - `public/js/game-core.js` — zasady gry, tempo, punktacja, geometria i trafianie w pokoje; bez DOM.
 - `public/js/game.js` — renderowanie gry, przeciąganie, pauza, pełny ekran i rekord.
 - `tests/game-core.test.cjs` — testy uruchamiane wbudowanym runnerem Node.js.
-- `.openai/hosting.json` — konfiguracja istniejącej witryny Sites, serwującej `public/`.
+- `.openai/hosting.json` — konfiguracja istniejącej witryny Sites, serwującej kopię katalogu `public/`.
 
 ## Zmiany i testy
 
@@ -40,3 +40,13 @@ npx --yes prettier@3.6.2 --write public tests README.md .prettierrc.json
 ```
 
 Kod na GitHubie i wdrożenie Sites są synchronizowane oddzielnie.
+
+## Publikacja w Sites
+
+Sites wymaga katalogu `dist/`. Przed publikacją uruchom:
+
+```sh
+node scripts/prepare-sites.mjs
+```
+
+Skrypt kopiuje pliki z `public/` do ignorowanego przez Git katalogu `dist/`, bez przekształceń. Nie kompiluje ani nie minifikuje kodu. Lokalna praca i uruchamianie strony nie wymagają tego kroku.
