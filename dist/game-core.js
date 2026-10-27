@@ -9,11 +9,12 @@ class Game {
   start(){this.reset('playing');const home=Math.floor(this.random()*4);this.people.push({id:++this.nextId,home,target:(home+1)%4,state:'wrong',slot:0,progress:0,lane:0});for(let lane=0;lane<2;lane++){const h=(home+lane+1)%4;this.people.push({id:++this.nextId,home:h,target:(h+2)%4,state:'walking',progress:.08+lane*.13,lane,duration:6.4})}}
   get wrong(){return this.people.filter(p=>p.state==='wrong').length}
   get level(){return 1+Math.floor(this.elapsed/20)}
-  get pace(){return 1+.9*(1-Math.exp(-this.elapsed/40))+.12*Math.log1p(this.elapsed/60)}
-  get walkDuration(){return Math.max(2.2,6.4/this.pace)}
-  get interval(){return Math.max(.24,1.05/this.pace)}
-  plan(){const lanes=[0,1,2].filter(l=>!this.people.some(p=>p.state==='walking'&&p.lane===l));const windowRoute=!this.people.some(p=>p.state==='window')&&this.random()<(.18+.15*(1-Math.exp(-this.elapsed/50)));if(!windowRoute&&!lanes.length)return;const home=Math.floor(this.random()*4),target=(home+1+Math.floor(this.random()*3))%4;this.pending={home,target,lane:lanes[0]??0,windowRoute,wait:Math.max(.3,.45/this.pace)};this.events.push({type:'warning',home})}
-  spawn(){const p=this.pending;if(!p)return;this.people.push({id:++this.nextId,home:p.home,target:p.target,lane:p.lane,state:p.windowRoute?'window':'walking',progress:0,duration:p.windowRoute?Math.max(2.8,5.5/this.pace):this.walkDuration});this.pending=null;this.spawnIn=this.interval}
+  get pace(){const t=Math.max(0,this.elapsed-10);return 1+2.8*(1-Math.exp(-t/55))+.25*Math.log1p(t/90)}
+  get movementPace(){const t=Math.max(0,this.elapsed-10);return 1+.8*(1-Math.exp(-t/100))+.1*Math.log1p(t/120)}
+  get walkDuration(){return Math.max(2.2,6.4/this.movementPace)}
+  get interval(){return Math.max(.18,1.05/this.pace)}
+  plan(){const lanes=[0,1,2].filter(l=>!this.people.some(p=>p.state==='walking'&&p.lane===l));const windowRoute=!this.people.some(p=>p.state==='window')&&this.random()<(.18+.15*(1-Math.exp(-this.elapsed/50)));if(!windowRoute&&!lanes.length)return;const home=Math.floor(this.random()*4),target=(home+1+Math.floor(this.random()*3))%4;this.pending={home,target,lane:lanes[0]??0,windowRoute,wait:Math.max(.14,.45/this.pace)};this.events.push({type:'warning',home})}
+  spawn(){const p=this.pending;if(!p)return;this.people.push({id:++this.nextId,home:p.home,target:p.target,lane:p.lane,state:p.windowRoute?'window':'walking',progress:0,duration:p.windowRoute?Math.max(2.8,5.5/this.movementPace):this.walkDuration});this.pending=null;this.spawnIn=this.interval}
   step(dt){if(this.mode!=='playing')return;this.elapsed+=dt;if(this.combo&&this.elapsed>this.comboUntil)this.combo=0;
     for(const p of this.people){if(!['walking','window'].includes(p.state)||p.id===this.dragId)continue;p.progress=Math.min(1,p.progress+dt/p.duration);if(p.progress===1){p.state='wrong';const used=new Set(this.people.filter(q=>q!==p&&q.state==='wrong'&&q.target===p.target).map(q=>q.slot));p.slot=[0,1,2,3,4].find(n=>!used.has(n));this.combo=0;this.events.push({type:'arrival',id:p.id});}}
     if(this.wrong>=LIMIT){this.end('lost');return}
