@@ -1,20 +1,304 @@
-const test=require('node:test'),assert=require('node:assert/strict');
-const {Game,dropRoom,position,layout}=require('../dist/game-core.js');
-function advance(g,s){for(let t=0;t<s&&g.mode==='playing';t+=.02)g.step(.02)}
-function rng(seed){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/2**32}}
-test('optional practice accepts only the correct room and does not start the clock',()=>{const g=new Game();g.practice();const p=g.people[0];assert(g.pickup(p.id));assert.equal(g.release(0).ok,false);assert.equal(g.people.length,1);g.pickup(p.id);assert(g.release(p.home).practice);assert.equal(g.mode,'practice');assert.equal(g.people.length,0);assert.equal(g.elapsed,0)});
-test('hard start has an intruder and two walkers; ramp increases continuously with fair lower bounds',()=>{const g=new Game();g.start();assert.equal(g.wrong,1);assert.equal(g.people.filter(p=>p.state==='walking').length,2);let prev=1,interval=2,duration=7;for(let t=0;t<=3600;t++){g.elapsed=t;assert(g.pace>=prev);assert(g.interval<=interval);assert(g.walkDuration<=duration);assert(g.walkDuration>=2.2);assert(g.interval>=.18);prev=g.pace;interval=g.interval;duration=g.walkDuration}g.elapsed=40;assert(g.pace>1.6)});
-test('click/cancel never removes a walker; correct drag scores exactly once',()=>{const g=new Game(()=>.5);g.start();const p=g.people.find(p=>p.state==='walking'),n=g.people.length;g.pickup(p.id);g.cancel();assert.equal(g.people.length,n);g.pickup(p.id);assert.equal(g.release(null).reason,'outside');assert(g.people.includes(p));g.pickup(p.id);assert(g.release(p.home).ok);assert.equal(g.people.length,n-1);assert.equal(g.score,10);assert.equal(g.release(p.home).ok,false);assert.equal(g.score,10)});
-test('held walker stops moving; pause clears capture and stops simulation',()=>{const g=new Game(()=>.5);g.start();const p=g.people.find(p=>p.state==='walking');g.pickup(p.id);const progress=p.progress;advance(g,.4);assert.equal(p.progress,progress);g.pause();assert.equal(g.dragId,null);const t=g.elapsed;g.step(5);assert.equal(g.elapsed,t);assert(!g.pickup(p.id));g.resume();advance(g,.1);assert(p.progress>progress)});
-test('neglect loses at five intruders, much sooner than the old gentle opening',()=>{for(let seed=1;seed<=30;seed++){const g=new Game(rng(seed));g.start();advance(g,40);assert.equal(g.mode,'ended');assert.equal(g.endReason,'lost');assert(g.wrong>=5);assert(g.elapsed<22);assert.equal(g.dragId,null)}});
-test('endless run survives beyond 60 seconds and 20 minutes, keeps spawning and scoring',()=>{const g=new Game(rng(12));g.start();let scoreAtMinute=0;for(let t=0;t<1205;t+=.05){g.step(.05);for(const p of [...g.people])if(p.state!=='window'){assert(g.pickup(p.id));assert(g.release(p.home).ok)}if(t>60&&!scoreAtMinute)scoreAtMinute=g.score}assert.equal(g.mode,'playing');assert(g.elapsed>1200);assert(g.saved>400);assert(g.score>scoreAtMinute*5);assert(g.score>=g.saved*10)});
-test('window participant is immune only behind glass and becomes draggable indoors',()=>{const g=new Game(()=>0);g.reset('playing');g.plan();assert(g.pending.windowRoute);g.spawn();const p=g.people[0];assert.equal(p.state,'window');assert(!g.pickup(p.id));advance(g,5.6);assert.equal(p.state,'wrong');assert(g.pickup(p.id));assert(g.release(p.home).ok);assert(!g.people.includes(p))});
-test('phone portrait and landscape geometry: every active target fits, no stacked slots',()=>{for(const [w,h] of [[360,460],[378,630],[304,364],[304,282],[304,250],[828,282],[650,270],[800,230],[1200,670]]){const l=layout(w,h),half=l.size/2;for(let room=0;room<4;room++){const points=[];for(let slot=0;slot<4;slot++){const p=position({home:(room+1)%4,target:room,state:'wrong',slot},l),r=l.rooms[room];assert(p.x-half>=r.left-1&&p.x+half<=r.left+r.width+1,`${w}x${h} slot x`);assert(p.y-half>=r.top-1&&p.y+half<=r.top+r.height+1,`${w}x${h} slot y`);points.push(p)}for(let i=0;i<4;i++)for(let j=0;j<i;j++)assert(Math.abs(points[i].x-points[j].x)>=l.size+3||Math.abs(points[i].y-points[j].y)>=l.size+3)}for(let lane=0;lane<3;lane++){const p=position({home:0,target:3,state:'walking',progress:.5,lane},l);assert(p.y+half<=h+1);assert(p.y-half>=l.rooms[0].top+l.rooms[0].height)}}});
-test('drop geometry accepts centre/edge drops and rejects wrong rooms and distant drops',()=>{const rooms=Array.from({length:4},(_,i)=>({left:100+i*100,right:200+i*100,top:80,bottom:400}));assert.equal(dropRoom({x:250,y:150},{x:250,y:150},rooms,1),1);assert.equal(dropRoom({x:249,y:410},{x:249,y:390},rooms,1),1);assert.equal(dropRoom({x:249,y:413},{x:249,y:413},rooms,1),1);assert.equal(dropRoom({x:349,y:150},{x:349,y:150},rooms,1),2);assert.equal(dropRoom({x:250,y:410},{x:266,y:426},rooms,1),1);assert.equal(dropRoom({x:250,y:480},{x:250,y:480},rooms,1),null)});
-test('restart creates a fresh hard opening and clears stale captures',()=>{const g=new Game(()=>.5);g.start();g.pickup(g.people[0].id);g.start();assert.equal(g.dragId,null);assert.equal(g.people.length,3);assert.equal(g.score,0);assert.equal(g.pending,null)});
+const test = require('node:test'),
+  assert = require('node:assert/strict');
+const { Game, dropRoom, position, layout } = require('../public/js/game-core.js');
+function advance(g, s) {
+  for (let t = 0; t < s && g.mode === 'playing'; t += 0.02) g.step(0.02);
+}
+function rng(seed) {
+  return () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 2 ** 32;
+  };
+}
+test('optional practice accepts only the correct room and does not start the clock', () => {
+  const g = new Game();
+  g.practice();
+  const p = g.people[0];
+  assert(g.pickup(p.id));
+  assert.equal(g.release(0).ok, false);
+  assert.equal(g.people.length, 1);
+  g.pickup(p.id);
+  assert(g.release(p.home).practice);
+  assert.equal(g.mode, 'practice');
+  assert.equal(g.people.length, 0);
+  assert.equal(g.elapsed, 0);
+});
+test('hard start has an intruder and two walkers; ramp increases continuously with fair lower bounds', () => {
+  const g = new Game();
+  g.start();
+  assert.equal(g.wrong, 1);
+  assert.equal(g.people.filter((p) => p.state === 'walking').length, 2);
+  let prev = 1,
+    interval = 2,
+    duration = 7;
+  for (let t = 0; t <= 3600; t++) {
+    g.elapsed = t;
+    assert(g.pace >= prev);
+    assert(g.interval <= interval);
+    assert(g.walkDuration <= duration);
+    assert(g.walkDuration >= 2.2);
+    assert(g.interval >= 0.18);
+    prev = g.pace;
+    interval = g.interval;
+    duration = g.walkDuration;
+  }
+  g.elapsed = 40;
+  assert(g.pace > 1.6);
+});
+test('click/cancel never removes a walker; correct drag scores exactly once', () => {
+  const g = new Game(() => 0.5);
+  g.start();
+  const p = g.people.find((p) => p.state === 'walking'),
+    n = g.people.length;
+  g.pickup(p.id);
+  g.cancel();
+  assert.equal(g.people.length, n);
+  g.pickup(p.id);
+  assert.equal(g.release(null).reason, 'outside');
+  assert(g.people.includes(p));
+  g.pickup(p.id);
+  assert(g.release(p.home).ok);
+  assert.equal(g.people.length, n - 1);
+  assert.equal(g.score, 10);
+  assert.equal(g.release(p.home).ok, false);
+  assert.equal(g.score, 10);
+});
+test('held walker stops moving; pause clears capture and stops simulation', () => {
+  const g = new Game(() => 0.5);
+  g.start();
+  const p = g.people.find((p) => p.state === 'walking');
+  g.pickup(p.id);
+  const progress = p.progress;
+  advance(g, 0.4);
+  assert.equal(p.progress, progress);
+  g.pause();
+  assert.equal(g.dragId, null);
+  const t = g.elapsed;
+  g.step(5);
+  assert.equal(g.elapsed, t);
+  assert(!g.pickup(p.id));
+  g.resume();
+  advance(g, 0.1);
+  assert(p.progress > progress);
+});
+test('neglect loses at five intruders, much sooner than the old gentle opening', () => {
+  for (let seed = 1; seed <= 30; seed++) {
+    const g = new Game(rng(seed));
+    g.start();
+    advance(g, 40);
+    assert.equal(g.mode, 'ended');
+    assert.equal(g.endReason, 'lost');
+    assert(g.wrong >= 5);
+    assert(g.elapsed < 22);
+    assert.equal(g.dragId, null);
+  }
+});
+test('endless run survives beyond 60 seconds and 20 minutes, keeps spawning and scoring', () => {
+  const g = new Game(rng(12));
+  g.start();
+  let scoreAtMinute = 0;
+  for (let t = 0; t < 1205; t += 0.05) {
+    g.step(0.05);
+    for (const p of [...g.people])
+      if (p.state !== 'window') {
+        assert(g.pickup(p.id));
+        assert(g.release(p.home).ok);
+      }
+    if (t > 60 && !scoreAtMinute) scoreAtMinute = g.score;
+  }
+  assert.equal(g.mode, 'playing');
+  assert(g.elapsed > 1200);
+  assert(g.saved > 400);
+  assert(g.score > scoreAtMinute * 5);
+  assert(g.score >= g.saved * 10);
+});
+test('window participant is immune only behind glass and becomes draggable indoors', () => {
+  const g = new Game(() => 0);
+  g.reset('playing');
+  g.plan();
+  assert(g.pending.windowRoute);
+  g.spawn();
+  const p = g.people[0];
+  assert.equal(p.state, 'window');
+  assert(!g.pickup(p.id));
+  advance(g, 5.6);
+  assert.equal(p.state, 'wrong');
+  assert(g.pickup(p.id));
+  assert(g.release(p.home).ok);
+  assert(!g.people.includes(p));
+});
+test('phone portrait and landscape geometry: every active target fits, no stacked slots', () => {
+  for (const [w, h] of [
+    [360, 460],
+    [378, 630],
+    [304, 364],
+    [304, 282],
+    [304, 250],
+    [828, 282],
+    [650, 270],
+    [800, 230],
+    [1200, 670],
+  ]) {
+    const l = layout(w, h),
+      half = l.size / 2;
+    for (let room = 0; room < 4; room++) {
+      const points = [];
+      for (let slot = 0; slot < 4; slot++) {
+        const p = position(
+            { home: (room + 1) % 4, target: room, state: 'wrong', slot },
+            l,
+          ),
+          r = l.rooms[room];
+        assert(
+          p.x - half >= r.left - 1 && p.x + half <= r.left + r.width + 1,
+          `${w}x${h} slot x`,
+        );
+        assert(
+          p.y - half >= r.top - 1 && p.y + half <= r.top + r.height + 1,
+          `${w}x${h} slot y`,
+        );
+        points.push(p);
+      }
+      for (let i = 0; i < 4; i++)
+        for (let j = 0; j < i; j++)
+          assert(
+            Math.abs(points[i].x - points[j].x) >= l.size + 3 ||
+              Math.abs(points[i].y - points[j].y) >= l.size + 3,
+          );
+    }
+    for (let lane = 0; lane < 3; lane++) {
+      const p = position(
+        { home: 0, target: 3, state: 'walking', progress: 0.5, lane },
+        l,
+      );
+      assert(p.y + half <= h + 1);
+      assert(p.y - half >= l.rooms[0].top + l.rooms[0].height);
+    }
+  }
+});
+test('drop geometry accepts centre/edge drops and rejects wrong rooms and distant drops', () => {
+  const rooms = Array.from({ length: 4 }, (_, i) => ({
+    left: 100 + i * 100,
+    right: 200 + i * 100,
+    top: 80,
+    bottom: 400,
+  }));
+  assert.equal(dropRoom({ x: 250, y: 150 }, { x: 250, y: 150 }, rooms, 1), 1);
+  assert.equal(dropRoom({ x: 249, y: 410 }, { x: 249, y: 390 }, rooms, 1), 1);
+  assert.equal(dropRoom({ x: 249, y: 413 }, { x: 249, y: 413 }, rooms, 1), 1);
+  assert.equal(dropRoom({ x: 349, y: 150 }, { x: 349, y: 150 }, rooms, 1), 2);
+  assert.equal(dropRoom({ x: 250, y: 410 }, { x: 266, y: 426 }, rooms, 1), 1);
+  assert.equal(dropRoom({ x: 250, y: 480 }, { x: 250, y: 480 }, rooms, 1), null);
+});
+test('restart creates a fresh hard opening and clears stale captures', () => {
+  const g = new Game(() => 0.5);
+  g.start();
+  g.pickup(g.people[0].id);
+  g.start();
+  assert.equal(g.dragId, null);
+  assert.equal(g.people.length, 3);
+  assert.equal(g.score, 0);
+  assert.equal(g.pending, null);
+});
 
-test("window holes allow pickup only in the marked openings in either layout",()=>{const {windowCatchable}=require("../dist/game-core.js");for(const dims of [[378,630],[828,280]]){const l=layout(...dims);assert.equal(l.windowBox.top,0);assert(l.rooms.every(r=>r.top>=l.windowBox.height));const g=new Game(()=>0);g.reset("playing");g.plan();g.spawn();const p=g.people[0];p.home=0;p.target=3;for(const x of [.22,.5,.78]){p.progress=(l.width*x-l.width/8)/(l.width*.75);assert(windowCatchable(p,l));assert(g.pickup(p.id,true));g.cancel()}p.progress=0;assert(!windowCatchable(p,l));assert(!g.pickup(p.id))}});
+test('window holes allow pickup only in the marked openings in either layout', () => {
+  const { windowCatchable } = require('../public/js/game-core.js');
+  for (const dims of [
+    [378, 630],
+    [828, 280],
+  ]) {
+    const l = layout(...dims);
+    assert.equal(l.windowBox.top, 0);
+    assert(l.rooms.every((r) => r.top >= l.windowBox.height));
+    const g = new Game(() => 0);
+    g.reset('playing');
+    g.plan();
+    g.spawn();
+    const p = g.people[0];
+    p.home = 0;
+    p.target = 3;
+    for (const x of [0.22, 0.5, 0.78]) {
+      p.progress = (l.width * x - l.width / 8) / (l.width * 0.75);
+      assert(windowCatchable(p, l));
+      assert(g.pickup(p.id, true));
+      g.cancel();
+    }
+    p.progress = 0;
+    assert(!windowCatchable(p, l));
+    assert(!g.pickup(p.id));
+  }
+});
 
-test("opening stays unchanged; arrivals accelerate faster than movement",()=>{const g=new Game();for(const t of [0,5,10]){g.elapsed=t;assert.equal(g.pace,1);assert.equal(g.movementPace,1);assert.equal(g.interval,1.05);assert.equal(g.walkDuration,6.4)}let lastMove=1,lastSpawn=1;for(let t=11;t<=3600;t++){g.elapsed=t;assert(g.movementPace>=lastMove);assert(g.pace>=lastSpawn);assert(g.pace>g.movementPace);lastMove=g.movementPace;lastSpawn=g.pace}g.elapsed=60;assert(g.pace>2.7);assert(g.movementPace<1.4);assert(g.interval+.45/g.pace<.56)});
-test('UI references only elements present in its markup (loss and pause overlays)',()=>{const fs=require('node:fs');const source=fs.readFileSync(require.resolve('../dist/game.js'),'utf8');const ids=new Set([...source.matchAll(/id="([\w-]+)"/g)].map(m=>m[1]));for(const m of source.matchAll(/by\('([^']+)'\)/g))assert(ids.has(m[1]),`Missing UI element: ${m[1]}`)});
-test('small layout changes preserve an active drag and rebase its screen position',()=>{const vm=require('node:vm'),fs=require('node:fs'),source=fs.readFileSync(require.resolve('../dist/game.js'),'utf8');const fn=source.match(/function viewportResize\(\)\{[^\n]+/)[0];let canceled=0,paused=0,moves=[];const c={section:{classList:{contains:()=>false}},currentLayout:{width:800,height:400},game:{mode:'playing'},drag:{pointerId:7,clientX:310,clientY:220},applyLayout(){c.currentLayout={width:800,height:398}},pause(){paused++},cancelDrag(){canceled++},move(e){moves.push([e.pointerId,e.clientX,e.clientY])},render(){}};vm.createContext(c);vm.runInContext(fn+';viewportResize()',c);assert.equal(canceled,0);assert.equal(paused,0);assert.deepEqual(moves,[[7,310,220]]);c.applyLayout=()=>{c.currentLayout={width:400,height:800}};vm.runInContext('viewportResize()',c);assert.equal(paused,1)});
+test('opening stays unchanged; arrivals accelerate faster than movement', () => {
+  const g = new Game();
+  for (const t of [0, 5, 10]) {
+    g.elapsed = t;
+    assert.equal(g.pace, 1);
+    assert.equal(g.movementPace, 1);
+    assert.equal(g.interval, 1.05);
+    assert.equal(g.walkDuration, 6.4);
+  }
+  let lastMove = 1,
+    lastSpawn = 1;
+  for (let t = 11; t <= 3600; t++) {
+    g.elapsed = t;
+    assert(g.movementPace >= lastMove);
+    assert(g.pace >= lastSpawn);
+    assert(g.pace > g.movementPace);
+    lastMove = g.movementPace;
+    lastSpawn = g.pace;
+  }
+  g.elapsed = 60;
+  assert(g.pace > 2.7);
+  assert(g.movementPace < 1.4);
+  assert(g.interval + 0.45 / g.pace < 0.56);
+});
+test('UI references only elements present in its markup (loss and pause overlays)', () => {
+  const fs = require('node:fs');
+  const source = fs.readFileSync(require.resolve('../public/js/game.js'), 'utf8');
+  const html = fs.readFileSync(require.resolve('../public/index.html'), 'utf8');
+  const ids = new Set([...(source + html).matchAll(/id="([\w-]+)"/g)].map((m) => m[1]));
+  for (const m of source.matchAll(/by\('([^']+)'\)/g))
+    assert(ids.has(m[1]), `Missing UI element: ${m[1]}`);
+});
+test('small layout changes preserve an active drag and rebase its screen position', () => {
+  const vm = require('node:vm'),
+    fs = require('node:fs'),
+    source = fs.readFileSync(require.resolve('../public/js/game.js'), 'utf8');
+  const fn = source.slice(
+    source.indexOf('function viewportResize('),
+    source.indexOf('launch.onclick'),
+  );
+  let canceled = 0,
+    paused = 0,
+    moves = [];
+  const c = {
+    section: { classList: { contains: () => false } },
+    currentLayout: { width: 800, height: 400 },
+    game: { mode: 'playing' },
+    drag: { pointerId: 7, clientX: 310, clientY: 220 },
+    applyLayout() {
+      c.currentLayout = { width: 800, height: 398 };
+    },
+    pause() {
+      paused++;
+    },
+    cancelDrag() {
+      canceled++;
+    },
+    move(e) {
+      moves.push([e.pointerId, e.clientX, e.clientY]);
+    },
+    render() {},
+  };
+  vm.createContext(c);
+  vm.runInContext(fn + ';viewportResize()', c);
+  assert.equal(canceled, 0);
+  assert.equal(paused, 0);
+  assert.deepEqual(moves, [[7, 310, 220]]);
+  c.applyLayout = () => {
+    c.currentLayout = { width: 400, height: 800 };
+  };
+  vm.runInContext('viewportResize()', c);
+  assert.equal(paused, 1);
+});

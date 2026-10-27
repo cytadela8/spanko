@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>ej. spać.</title>
+    <meta
+      name="description"
+      content="Jest późno. Taki mały ziemniak mówi, żeby iść spać."
+    />
+    <link rel="stylesheet" href="css/main.css" />
+    <link rel="stylesheet" href="css/game.css" />
+  </head>
+  <body>
+    <header class="top"><span class="logo">ej. spać.</span></header>
+    <div class="sticker">łóżko &gt; wszystko</div>
+    <main>
+      <h1 id="heading">jeszcze nie śpisz?</h1>
+      <div class="clock">
+        <span id="hm">22:00</span><span class="seconds" id="ss">:00</span>
+      </div>
+      <p id="sub">do 23 masz jeszcze chwilę. korzystaj mądrze. albo nie.</p>
+      <div class="scene">
+        <div class="zz" aria-hidden="true">z z z</div>
+        <div class="scribble">to jest ziemniak<br />on już nie może ↘</div>
+        <div class="bubble" id="bubble">ja to bym się już położył</div>
+        <button class="blob" id="potato" aria-label="Szturchnij sennego ziemniaka">
+          <span class="eye a"></span><span class="eye b"></span
+          ><span class="cheek a"></span><span class="cheek b"></span
+          ><span class="mouth"></span><span class="foot a"></span
+          ><span class="foot b"></span>
+        </button>
+      </div>
+      <div class="buttons">
+        <button class="bigbtn" id="sleep">dobra, nara 🛌</button
+        ><button class="bigbtn" id="more">jeszcze 5 minut</button>
+      </div>
+      <div class="note" id="count">„jeszcze 5 minut” — Ty, 40 minut temu</div>
+      <div class="bottom">
+        <button id="excuse">mam dobrą wymówkę</button
+        ><button id="quiet">schowaj okienka</button>
+      </div>
+      <span class="star" aria-hidden="true">✳</span>
+    </main>
+    <div id="popups" aria-live="polite"></div>
+    <button id="stop" class="panic hidden">dobra, starczy tych okienek ×</button>
+    <dialog id="bye">
+      <div style="font-size: 65px">🛌</div>
+      <h2>no i pięknie.</h2>
+      <p>zamknij kartę.<br />ziemniak zgasi światło.</p>
+      <button class="bigbtn" id="return">zapomniałem umyć zęby</button>
+    </dialog>
+    <template id="gameTemplate"
+      ><header class="game-head">
+        <div class="game-title">
+          <span>dyżur bez końca</span>
+          <h2>kto znowu łazi?!</h2>
+        </div>
+        <div class="score-card"><small>WYNIK</small><b id="gameScore">0</b></div>
+        <div class="record-card" id="recordCard">
+          <small id="recordLabel">★ TWÓJ REKORD</small><b id="gameBest">0</b>
+        </div>
+        <div class="game-tools">
+          <button id="gamePause" class="hidden" aria-label="Pauza">Ⅱ</button
+          ><button id="gameFullscreen" aria-label="Pełny ekran">⛶</button
+          ><button class="game-close" aria-label="Zamknij grę">×</button>
+        </div>
+      </header>
+      <div class="game-hud">
+        <span id="gameTime">0:00</span><span id="gameLevel">tempo ×1.0</span
+        ><span id="gameCombo">seria —</span>
+        <div class="chaos" id="chaos">
+          <b id="gameWrong">1 / 5</b>
+          <div class="chaos-pips" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <strong id="chaosHint">nie u siebie</strong>
+        </div>
+      </div>
+      <div class="board" id="board">
+        <div class="window-lane">
+          <span id="windowHint">ŁAP PRZEZ DZIURY</span
+          ><i class="window-hole" style="left: 22%"></i
+          ><i class="window-hole" style="left: 50%"></i
+          ><i class="window-hole" style="left: 78%"></i>
+        </div>
+        <div id="gameOverlay" class="game-overlay">
+          <div>
+            <span class="overlay-eyebrow" id="overlayEyebrow">CISZA NOCNA</span>
+            <h3 id="overlayTitle">przypilnuj uczestników.</h3>
+            <p id="overlayText">
+              Przeciągaj obozowiczów do pokojów z numerem na piżamie. Tych za szybą łap
+              przez dziury. Pięcioro w cudzych pokojach i po ciszy nocnej.
+            </p>
+            <div id="resultNumbers" class="result-numbers hidden"></div>
+            <div class="overlay-buttons">
+              <button id="overlayAction">zaczynamy ten cyrk</button>
+            </div>
+          </div>
+        </div>
+        <div id="countdown" class="countdown hidden" aria-live="polite"></div>
+      </div>
+      <div class="game-message" id="gameMessage" role="status">
+        łap i odstawiaj.
+      </div></template
+    >
+    <script src="js/audio.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/game-core.js"></script>
+    <script src="js/game.js"></script>
+  </body>
+</html>
